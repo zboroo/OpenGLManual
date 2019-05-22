@@ -3,11 +3,15 @@
 #include <string>
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include "Shader.h"
 #include "Texture.h"
 
 GLFWwindow* window;
 int width = 800;
-int height = 600;
+int height = 800;
 std::string title = "OpenGL";
 
 float prevFrameTime = 0.0f;
@@ -49,79 +53,27 @@ int main(int argc, char** argv)
 	}
 
 	// Shader编译链接
-	std::string line;
-	GLint success;
-
-	std::string vertexShaderContent;
-	std::ifstream vertexShaderFile("shader/base.vert");
-	while (std::getline(vertexShaderFile, line))
-	{
-		vertexShaderContent += line + '\n';
-	}
-
-	const char* vertexShaderSource = vertexShaderContent.c_str();
-	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-	glCompileShader(vertexShader);
-
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		GLchar info[512];
-		glGetShaderInfoLog(vertexShader, 512, nullptr, info);
-		std::cout << "vertex shader compile failed: " << info << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	std::string fragmentShaderContent;
-	std::ifstream fragmentShaderFile("shader/base.frag");
-	while (std::getline(fragmentShaderFile, line))
-	{
-		fragmentShaderContent += line + '\n';
-	}
-
-	const char* fragmentShaderSource = fragmentShaderContent.c_str();
-	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
-	glCompileShader(fragmentShader);
-
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		GLchar info[512];
-		glGetShaderInfoLog(fragmentShader, 512, nullptr, info);
-		std::cout << "fargment shader compile failed: " << info << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	GLuint program = glCreateProgram();
-	glAttachShader(program, vertexShader);
-	glAttachShader(program, fragmentShader);
-	glLinkProgram(program);
-
-	glGetProgramiv(program, GL_LINK_STATUS, &success);
-	if (!success)
-	{
-		GLchar info[512];
-		glGetProgramInfoLog(program, 512, nullptr, info);
-		std::cout << "program shader link failed: " << info << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
+	Shader baseShader("shader/base.vert", "shader/base.frag");
 
 	// 顶点属性
 	GLfloat positions[] =
 	{
-		 0.5f,  0.5f, 0.0f,
-		 0.5f, -0.5f, 0.0f,
-		-0.5f, -0.5f, 0.0f,
-		-0.5f,  0.5f, 0.0f
+		 0.5f,  0.5f,  0.0f,
+		 0.5f, -0.5f,  0.0f,
+		-0.5f, -0.5f,  0.0f,
+		-0.5f,  0.5f,  0.0f,
+		 0.5f,  0.5f, -1.0f,
+		 0.5f, -0.5f, -1.0f,
+		-0.5f, -0.5f, -1.0f,
+		-0.5f,  0.5f, -1.0f
 	};
 
 	GLfloat colors[] =
 	{
+		1.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 1.0f,
+		1.0f, 0.0f, 0.0f,
 		1.0f, 0.0f, 0.0f,
 		0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 1.0f,
@@ -130,10 +82,10 @@ int main(int argc, char** argv)
 
 	GLfloat texcoords[] =
 	{
-		2.0f, 2.0f,
-		2.0f, -2.0f,
-		-2.0f, -2.0f,
-		-2.0f, 2.0f
+		1.0f, 1.0f,
+		1.0f, 0.0f,
+		0.0f, 0.0f,
+		0.0f, 1.0f
 	};
 
 	GLuint indices[] =
@@ -156,15 +108,15 @@ int main(int argc, char** argv)
 	glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions), sizeof(colors), colors);
 	glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(colors), sizeof(texcoords), texcoords);
 
-	GLint positionLocation = glGetAttribLocation(program, "vertexPostion");
+	GLint positionLocation = glGetAttribLocation(baseShader.id, "vertexPostion");
 	glEnableVertexAttribArray(positionLocation);
 	glVertexAttribPointer(positionLocation, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
 
-	GLint colorLocation = glGetAttribLocation(program, "vertexColor");
+	GLint colorLocation = glGetAttribLocation(baseShader.id, "vertexColor");
 	glEnableVertexAttribArray(colorLocation);
 	glVertexAttribPointer(colorLocation, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)(sizeof(positions)));
 
-	GLint texcoordLocation = glGetAttribLocation(program, "vertexTexcoord");
+	GLint texcoordLocation = glGetAttribLocation(baseShader.id, "vertexTexcoord");
 	glEnableVertexAttribArray(texcoordLocation);
 	glVertexAttribPointer(texcoordLocation, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void* )(sizeof(positions) + sizeof(colors)));
 
@@ -175,13 +127,13 @@ int main(int argc, char** argv)
 
 	// 生成贴图
 	Texture firstTexture;
-	firstTexture.generate(program, "firstTexture", GL_TEXTURE0, "texture/brickwall.jpg");
+	firstTexture.generate(baseShader.id, "firstTexture", GL_TEXTURE0, "texture/brickwall.jpg");
 
 	Texture secondTexture;
-	secondTexture.generate(program, "secondTexture", GL_TEXTURE1, "texture/awesomeface.png");
+	secondTexture.generate(baseShader.id, "secondTexture", GL_TEXTURE1, "texture/awesomeface.png");
 
 
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	while (!glfwWindowShouldClose(window))
@@ -192,14 +144,14 @@ int main(int argc, char** argv)
 
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glUseProgram(program);
+		baseShader.use();
 		
 		glBindVertexArray(VAO);
 		firstTexture.bind();
 		secondTexture.bind();
 		
-		glUniform1f(glGetUniformLocation(program, "runtime"), static_cast<float>(glfwGetTime()));
-		glUniform1f(glGetUniformLocation(program, "delta"), deltaFrameTime);
+		baseShader.setFloat("runtime", static_cast<float>(glfwGetTime()));
+		baseShader.setFloat("delta", deltaFrameTime);
 		
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 

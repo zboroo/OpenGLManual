@@ -1,6 +1,6 @@
 #include "Texture.h"
 
-Texture::Texture() : id(0), wrapS(GL_REPEAT), wrapT(GL_REPEAT), minFilter(GL_LINEAR), magFilter(GL_LINEAR)
+Texture::Texture() : id(0), wrapS(GL_REPEAT), wrapT(GL_REPEAT), minFilter(GL_LINEAR), magFilter(GL_LINEAR), borderColor({1.0f,1.0f,1.0f,1.0f})
 {
 	glGenTextures(1, &id);
 }
@@ -16,7 +16,7 @@ void Texture::generate(GLuint shaderProgram, std::string textureName, GLenum act
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 
-	if (wrapS == GL_CLAMP_TO_BORDER || wrapT == GL_CLAMP_TO_BORDER)
+	if (wrapS == GL_CLAMP_TO_BORDER && wrapT == GL_CLAMP_TO_BORDER)
 	{
 		glGetTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor.data());
 	}
